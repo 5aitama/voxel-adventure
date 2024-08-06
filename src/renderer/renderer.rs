@@ -11,6 +11,7 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use super::voxel::{
+    chunk::chunk::Chunk,
     passes::{rendering::VoxelImageRenderingPass, voxel_rendering::VoxelRendererPass},
     textures::RenderTexture,
 };
@@ -23,7 +24,8 @@ pub struct Renderer<'window> {
 
     render_texture: RenderTexture,
     voxel_image_rendering_pass: VoxelImageRenderingPass,
-    voxel_renderer_pass: VoxelRendererPass,
+    voxel_renderer_pass: VoxelRendererPass<256>,
+    chunk: Chunk<256>,
 }
 
 impl<'window> Renderer<'window> {
@@ -69,7 +71,14 @@ impl<'window> Renderer<'window> {
         let render_texture = RenderTexture::new(&device, window_size, TextureFormat::Rgba8Unorm);
         let voxel_image_rendering_pass =
             VoxelImageRenderingPass::new(&device, &render_texture, surface_config.format);
-        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture);
+        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture, 256);
+        let mut chunk = Chunk::new((0, 0, 0));
+
+        for i in 0..256 {
+            for j in 0..256 {
+                chunk.add_block((i, 0, j));
+            }
+        }
 
         Self {
             surface,
@@ -79,6 +88,7 @@ impl<'window> Renderer<'window> {
             render_texture,
             voxel_image_rendering_pass,
             voxel_renderer_pass,
+            chunk,
         }
     }
 
@@ -96,7 +106,7 @@ impl<'window> Renderer<'window> {
             &self.render_texture,
             self.surface_config.format,
         );
-        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture);
+        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture, 256);
     }
 
     pub fn draw(&self) {
@@ -108,6 +118,8 @@ impl<'window> Renderer<'window> {
             .create_command_encoder(&CommandEncoderDescriptor::default());
 
         let voxel_compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
+        self.voxel_renderer_pass.set_chunk(&self.queue, &self.chunk);
+
         self.voxel_renderer_pass
             .compute_with_pass(voxel_compute_pass);
 
@@ -127,7 +139,6 @@ impl<'window> Renderer<'window> {
         });
 
         self.voxel_image_rendering_pass.draw_with_pass(pass);
-
         let command_buffer = encoder.finish();
 
         self.queue.submit([command_buffer]);
