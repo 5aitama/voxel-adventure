@@ -4,11 +4,11 @@ use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferAddress, BufferBinding,
-    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, CommandEncoder, ComputePass,
-    ComputePipeline, ComputePipelineDescriptor, Device, PipelineLayout, PipelineLayoutDescriptor,
-    Queue, ShaderStages, StorageTextureAccess, TextureViewDimension,
+    BufferBindingType, BufferDescriptor, BufferUsages, ComputePass, ComputePipeline,
+    ComputePipelineDescriptor, Device, PipelineLayoutDescriptor, Queue, ShaderStages,
+    StorageTextureAccess, TextureViewDimension,
 };
 use winit::dpi::PhysicalSize;
 

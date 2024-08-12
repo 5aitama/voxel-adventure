@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use winit::{
     application::ApplicationHandler,
+    dpi::{PhysicalSize, Size},
     event::WindowEvent,
     event_loop::ActiveEventLoop,
     window::{Window, WindowId},
@@ -19,7 +20,10 @@ pub struct App<'window> {
 
 impl<'window> ApplicationHandler for App<'window> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        match event_loop.create_window(Default::default()) {
+        let attribute = winit::window::Window::default_attributes()
+            .with_inner_size(PhysicalSize::new(799, 599));
+
+        match event_loop.create_window(attribute) {
             Ok(window) => {
                 window.set_title(WINDOW_TITLE);
 

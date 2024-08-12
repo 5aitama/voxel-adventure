@@ -35,8 +35,22 @@ impl<const CHUNK_SIZE: usize> Chunk<CHUNK_SIZE> {
         &self.voxels
     }
 
+    /// Set the type of a voxel at a given position
+    /// in the current chunk.
+    ///
+    /// # Arguments
+    ///
+    /// * `ty` - The voxel type.
+    /// * `x` - The position of the voxel in `x` axis.
+    /// * `y` - The position of the voxel in `y` axis.
+    /// * `z` - The position of the voxel in `z` axis.
+    ///
+    pub fn set_voxel(&mut self, ty: u16, x: u32, y: u32, z: u32) {
+        self.voxels[0];
+    }
+
     pub fn get_raw_voxels(&self) -> &[u8] {
-        unsafe { std::mem::transmute(self.voxels.as_slice()) }
+        bytemuck::cast_slice(self.voxels.as_slice())
     }
 
     pub fn get_pos(&self) -> &Point3D {

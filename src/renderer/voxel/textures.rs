@@ -55,6 +55,7 @@ impl RenderTexture {
         });
 
         self.view = self.texture.create_view(&Default::default());
+        self.size = new_size;
     }
 
     pub fn get_size(&self) -> PhysicalSize<u32> {

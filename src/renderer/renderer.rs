@@ -24,8 +24,8 @@ pub struct Renderer<'window> {
 
     render_texture: RenderTexture,
     voxel_image_rendering_pass: VoxelImageRenderingPass,
-    voxel_renderer_pass: VoxelRendererPass<256>,
-    chunk: Chunk<256>,
+    voxel_renderer_pass: VoxelRendererPass<64>,
+    chunk: Chunk<64>,
 }
 
 impl<'window> Renderer<'window> {
@@ -71,11 +71,11 @@ impl<'window> Renderer<'window> {
         let render_texture = RenderTexture::new(&device, window_size, TextureFormat::Rgba8Unorm);
         let voxel_image_rendering_pass =
             VoxelImageRenderingPass::new(&device, &render_texture, surface_config.format);
-        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture, 256);
+        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture, 64);
         let mut chunk = Chunk::new((0, 0, 0));
 
-        for i in 0..256 {
-            for j in 0..256 {
+        for i in 0..64 {
+            for j in 0..64 {
                 chunk.add_block((i, 0, j));
             }
         }
@@ -106,7 +106,7 @@ impl<'window> Renderer<'window> {
             &self.render_texture,
             self.surface_config.format,
         );
-        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture, 256);
+        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture, 64);
     }
 
     pub fn draw(&self) {

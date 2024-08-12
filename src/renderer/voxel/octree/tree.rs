@@ -86,6 +86,12 @@ impl Tree {
 
             for (cell_index, cell) in cells.iter().enumerate() {
                 if cells[cell_index].contains(point) {
+                    #[cfg(test)]
+                    println!(
+                        "Set point at offset {} at pos [{:?}] extend [{:?}]",
+                        offset, cells[cell_index].position, cells[cell_index].extend
+                    );
+
                     let next_offset = offset * 8 + (cell_index + 1);
                     let mask = 1 << cell_index;
 
@@ -161,5 +167,61 @@ impl Tree {
     /// Retrieve the size of the tree.
     pub fn get_size(&self) -> u32 {
         self.size as u32
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_octree() {
+        let mut tree = Tree::new(8);
+        // for i in 0..16 {
+        //     for j in 0..16 {
+        tree.set_block_state((0, 0, 0), true, Default::default());
+        tree.set_block_state((0, 6, 0), true, Default::default());
+        //     }
+        // }
+
+        let raw_data = tree.raw_data();
+        println!("{:?}", raw_data);
+
+        let data: &[u32] = bytemuck::cast_slice(tree.raw_data());
+
+        let mut raw = Vec::<u8>::new();
+
+        for i in 0..(data.len() * 4) {
+            let value = (data[i / 4] >> ((i % 4) * 8)) & 0xFF;
+            raw.push(value as u8);
+        }
+
+        assert_eq!(raw_data, raw);
+        println!("Len is : {}", raw_data.len());
+
+        let mut offset = 0;
+
+        for _ in 0..3 {
+            println!("Offset: {:?}", offset);
+
+            // Retrieve the value of the current cell.
+            // This value contains 8 bits that represent
+            // the 8 subdivision of the current cell. If
+            // a bit is equal to 1 it mean that he have
+            // childs otherwise it dosen't have child.
+            let value = (data[offset / 4] >> ((offset % 4) * 8)) & 0xFF;
+
+            let index = 2;
+
+            // Check if the current cell have child for the
+            // index 0...
+            if ((value >> index) & 0x1) != 1 {
+                println!("Don't have childs !");
+                break;
+            }
+
+            // Go to the next octree child...
+            offset = offset * 8 + (index + 1);
+        }
     }
 }
