@@ -1,8 +1,16 @@
-use std::mem::size_of;
-
-use wgpu::{Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device};
-
 use crate::renderer::voxel::octree::{point::Point3D, tree::Tree};
+
+pub struct Voxel;
+
+impl Voxel {
+    pub fn new_color(r: u8, g: u8, b: u8) -> u16 {
+        let r = (r & 0x1F) as u16;
+        let g = (g & 0x3F) as u16;
+        let b = (b & 0x1F) as u16;
+        println!("{r}, {g}, {b}");
+        ((r & 0x1F) | ((g & 0x3F) << 5) | ((b & 0x1F) << 11)) as u16
+    }
+}
 
 pub struct Chunk<const SIZE: usize> {
     /// The position of the chunk in the world.
@@ -31,10 +39,6 @@ impl<const CHUNK_SIZE: usize> Chunk<CHUNK_SIZE> {
         &self.tree
     }
 
-    pub fn get_voxels(&self) -> &[u16] {
-        &self.voxels
-    }
-
     /// Set the type of a voxel at a given position
     /// in the current chunk.
     ///
@@ -45,23 +49,12 @@ impl<const CHUNK_SIZE: usize> Chunk<CHUNK_SIZE> {
     /// * `y` - The position of the voxel in `y` axis.
     /// * `z` - The position of the voxel in `z` axis.
     ///
-    pub fn set_voxel(&mut self, ty: u16, x: u32, y: u32, z: u32) {
-        self.voxels[0];
+    pub fn set_voxel(&mut self, ty: u16, x: usize, y: usize, z: usize) {
+        let index = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE;
+        self.voxels[index] = ty;
     }
 
     pub fn get_raw_voxels(&self) -> &[u8] {
         bytemuck::cast_slice(self.voxels.as_slice())
-    }
-
-    pub fn get_pos(&self) -> &Point3D {
-        &self.pos
-    }
-
-    pub fn add_block<P: Into<Point3D>>(&mut self, at: P) {
-        self.tree.set_block_state(at, true, Default::default());
-    }
-
-    pub fn rem_block<P: Into<Point3D>>(&mut self, at: P) {
-        self.tree.set_block_state(at, false, Default::default());
     }
 }

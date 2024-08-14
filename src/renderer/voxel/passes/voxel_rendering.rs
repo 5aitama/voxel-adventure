@@ -33,7 +33,7 @@ pub struct VoxelRendererPass<const CHUNK_SIZE: usize> {
 }
 
 impl<const CHUNK_SIZE: usize> VoxelRendererPass<CHUNK_SIZE> {
-    pub fn new(device: &Device, render_texture: &RenderTexture, chunk_size: u32) -> Self {
+    pub fn new(device: &Device, render_texture: &RenderTexture) -> Self {
         let uniforms = Uniforms {
             texture_width: render_texture.get_size().width as f32,
             texture_height: render_texture.get_size().height as f32,
@@ -47,8 +47,7 @@ impl<const CHUNK_SIZE: usize> VoxelRendererPass<CHUNK_SIZE> {
 
         let voxel_buf = device.create_buffer(&BufferDescriptor {
             label: Some(LABEL),
-            size: (size_of::<u16>() * (chunk_size * chunk_size * chunk_size) as usize)
-                as BufferAddress,
+            size: (size_of::<u16>() * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) as BufferAddress,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -61,7 +60,7 @@ impl<const CHUNK_SIZE: usize> VoxelRendererPass<CHUNK_SIZE> {
 
         let octree_buf = device.create_buffer(&BufferDescriptor {
             label: Some(LABEL),
-            size: Tree::estimated_size_aligned(chunk_size, 256) as BufferAddress,
+            size: Tree::estimated_size_aligned(CHUNK_SIZE as u32, 256) as BufferAddress,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -200,7 +199,7 @@ impl<const CHUNK_SIZE: usize> VoxelRendererPass<CHUNK_SIZE> {
         }
 
         // Start the buffer copy...
-        queue.submit([]);
+        // queue.submit([]);
     }
 
     pub fn compute_with_pass(&self, mut pass: ComputePass) {

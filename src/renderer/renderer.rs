@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use noise::NoiseFn;
 use pollster::block_on;
 use wgpu::{
     Backends, Color, CommandEncoderDescriptor, CompositeAlphaMode, ComputePassDescriptor, Device,
@@ -11,7 +12,7 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use super::voxel::{
-    chunk::chunk::Chunk,
+    chunk::chunk::{Chunk, Voxel},
     passes::{rendering::VoxelImageRenderingPass, voxel_rendering::VoxelRendererPass},
     textures::RenderTexture,
 };
@@ -71,12 +72,36 @@ impl<'window> Renderer<'window> {
         let render_texture = RenderTexture::new(&device, window_size, TextureFormat::Rgba8Unorm);
         let voxel_image_rendering_pass =
             VoxelImageRenderingPass::new(&device, &render_texture, surface_config.format);
-        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture, 64);
+        let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture);
         let mut chunk = Chunk::new((0, 0, 0));
+        let n = noise::Simplex::new(2304);
+
+        let frq = 0.08;
 
         for i in 0..64 {
-            for j in 0..64 {
-                chunk.add_block((i, 0, j));
+            for j in 0..64 as usize {
+                for k in 0..64 {
+                    let v = n.get([i as f64 * frq, j as f64 * frq, k as f64 * frq]);
+                    let v1 = n.get([
+                        (i + 234) as f64 * frq,
+                        (j + 254) as f64 * frq,
+                        (k + 12) as f64 * frq,
+                    ]);
+
+                    let r = ((v1 + 1.0) / 2.0) as f32;
+                    let red = (0.6 * (0x1F as f32)) as u8;
+                    let green = (r * (0x3F as f32)) as u8;
+                    let blue = (0.2 * (0x1F as f32)) as u8;
+
+                    if v > 0.0 {
+                        chunk.set_voxel(
+                            Voxel::new_color(red, green, blue),
+                            i as usize,
+                            j as usize,
+                            k as usize,
+                        );
+                    }
+                }
             }
         }
 
@@ -106,7 +131,7 @@ impl<'window> Renderer<'window> {
             &self.render_texture,
             self.surface_config.format,
         );
-        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture, 64);
+        self.voxel_renderer_pass = VoxelRendererPass::new(&self.device, &self.render_texture);
     }
 
     pub fn draw(&self) {
