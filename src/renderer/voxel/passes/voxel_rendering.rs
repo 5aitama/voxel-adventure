@@ -197,9 +197,6 @@ impl<const CHUNK_SIZE: usize> VoxelRendererPass<CHUNK_SIZE> {
         ) {
             view.copy_from_slice(voxels);
         }
-
-        // Start the buffer copy...
-        // queue.submit([]);
     }
 
     pub fn compute_with_pass(&self, mut pass: ComputePass) {

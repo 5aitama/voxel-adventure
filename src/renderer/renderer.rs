@@ -74,28 +74,18 @@ impl<'window> Renderer<'window> {
             VoxelImageRenderingPass::new(&device, &render_texture, surface_config.format);
         let voxel_renderer_pass = VoxelRendererPass::new(&device, &render_texture);
         let mut chunk = Chunk::new((0, 0, 0));
-        let n = noise::Simplex::new(2304);
+        let n = noise::SuperSimplex::new(456);
 
-        let frq = 0.08;
+        let frq = [0.05, 0.01, 0.01];
 
         for i in 0..64 {
             for j in 0..64 as usize {
                 for k in 0..64 {
-                    let v = n.get([i as f64 * frq, j as f64 * frq, k as f64 * frq]);
-                    let v1 = n.get([
-                        (i + 234) as f64 * frq,
-                        (j + 254) as f64 * frq,
-                        (k + 12) as f64 * frq,
-                    ]);
-
-                    let r = ((v1 + 1.0) / 2.0) as f32;
-                    let red = (0.6 * (0x1F as f32)) as u8;
-                    let green = (r * (0x3F as f32)) as u8;
-                    let blue = (0.2 * (0x1F as f32)) as u8;
+                    let v = n.get([i as f64 * frq[0], j as f64 * frq[0], k as f64 * frq[0]]);
 
                     if v > 0.0 {
                         chunk.set_voxel(
-                            Voxel::new_color(red, green, blue),
+                            Voxel::new_color(0x1F, 0x3F, 0x1F),
                             i as usize,
                             j as usize,
                             k as usize,

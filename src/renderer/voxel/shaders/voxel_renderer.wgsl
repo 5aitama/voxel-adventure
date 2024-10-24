@@ -19,29 +19,6 @@ var<storage, read_write> voxel_buf: array<u32>;
 @group(0) @binding(3)
 var<storage, read> octree_buf: array<u32>;
 
-// fn slabs(ray: Ray, bounding_box: BoundingBox, hit_point: ptr<function, vec3<f32>>) -> bool {
-//     if (all(ray.origin >= bounding_box.min && ray.origin < bounding_box.max)) {
-//         return true;
-//     }
-
-//     let ta = (bounding_box.min - ray.origin - 0.0001) * ray.direction_inv;
-//     let tb = (bounding_box.max - ray.origin - 0.0001) * ray.direction_inv;
-
-//     let tmin = min(ta, tb);
-//     let tmax = max(ta, tb);
-
-//     // The distance at where the ray enter in the AABB
-//     let ray_in = max(max(tmin.x, tmin.y), tmin.z);
-
-//     // The distance at where the ray exit in the AABB
-//     let ray_out = min(min(tmax.x, tmax.y), tmax.z);
-
-//     // Recalculate the hit point
-//     *hit_point = ray.origin + ray.direction * ray_in;
-
-//     return ray_in < ray_out && ray_in >= 0.0;
-// }
-
 const CHUNK_SIZE = 64u;
 const PI = 3.14159265359;
 
@@ -230,7 +207,7 @@ fn main(input: Input) {
 	let camera_plane_u = vec3f(1.0, 0.0, 0.0);
 	let camera_plane_v = vec3f(0.0, 1.0, 0.0) * uniforms.texture_size.y / uniforms.texture_size.x;
 
-	let ray_pos = vec3f(32.1, 48.1, -32.1);
+	let ray_pos = vec3f(32.1, 32.1, -20.1);
 	let ray_dir = camera_dir + uv.x * camera_plane_u + uv.y * camera_plane_v;
 
 	// Create the ray.
@@ -242,13 +219,13 @@ fn main(input: Input) {
 
 	if (ray_trace(ray, &hit, 256)) {
 	    let voxel_color = extract_voxel_color(hit.voxel);
-		var local_shadow = max(dot(light, hit.normal), 0.1);
+		var local_shadow = max(dot(light, hit.normal), 0.3);
 
 	    let ray_shadow = new_ray(hit.point, light);
 		var ray_shadow_hit = RayHit();
 
 		if (ray_trace(ray_shadow, &ray_shadow_hit, 256)) {
-		    local_shadow = 0.1;
+		    local_shadow = 0.3;
 		}
 
 		var acc = 0u;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
+    dpi::{LogicalSize, PhysicalSize},
     event::WindowEvent,
     event_loop::ActiveEventLoop,
     window::{Window, WindowId},
@@ -20,8 +20,8 @@ pub struct App<'window> {
 
 impl<'window> ApplicationHandler for App<'window> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let attribute = winit::window::Window::default_attributes()
-            .with_inner_size(PhysicalSize::new(800, 600));
+        let attribute =
+            winit::window::Window::default_attributes().with_inner_size(LogicalSize::new(800, 600));
 
         match event_loop.create_window(attribute) {
             Ok(window) => {
@@ -30,7 +30,6 @@ impl<'window> ApplicationHandler for App<'window> {
                 let window = Arc::new(window);
                 self.window = Some(window.clone());
                 self.renderer = Some(Renderer::new(window.clone()));
-
                 self.window.as_ref().unwrap().request_redraw();
             }
             Err(err) => eprintln!("Failed to create a window: {:?}", err),
@@ -46,15 +45,17 @@ impl<'window> ApplicationHandler for App<'window> {
         match event {
             WindowEvent::Resized(new_size) => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.resize(new_size);
+                    // renderer.resize(new_size);
                 }
             }
 
             WindowEvent::RedrawRequested => {
                 if let Some(window) = self.window.as_ref() {
                     if window.id() == window_id {
-                        if let Some(renderer) = self.renderer.as_ref() {
-                            renderer.draw();
+                        if let Some(renderer) = self.renderer.as_mut() {
+                            if renderer.render().is_err() {
+                                event_loop.exit();
+                            }
                         }
                         window.request_redraw();
                     }
