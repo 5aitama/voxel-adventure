@@ -19,7 +19,6 @@ impl VoxelComputePass {
         device: &wgpu::Device,
         uniform_buf: &wgpu::Buffer,
         svo_buf: &wgpu::Buffer,
-        stack_buf: &wgpu::Buffer,
         out_tex_view: &wgpu::TextureView,
     ) -> Self {
         let shader_module =
@@ -49,10 +48,6 @@ impl VoxelComputePass {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: svo_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: stack_buf.as_entire_binding(),
                 },
             ],
         });

@@ -26,7 +26,7 @@ struct Ray {
     inverse_direction: vec3<f32>,
 }
 
-const BIAS: f32 = 0.001;
+const BIAS: f32 = 0.01;
 
 /// Create a new [`Ray`].
 ///
@@ -42,7 +42,7 @@ fn ray_new(origin: vec3<f32>, direction: vec3<f32>) -> Ray {
         f32(direction.z >= 0.0),
     ) * 2.0 - 1.0;
 
-    let dir: vec3<f32> = max(abs(direction), vec3<f32>(0.001)) * ndir;
+    let dir: vec3<f32> = max(abs(direction), vec3<f32>(0.01)) * ndir;
     return Ray(origin, dir, 1.0 / dir);
 }
 
@@ -140,9 +140,6 @@ var out_tex: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2)
 var<storage> sparse_voxel_octree_data: array<u32>;
 
-@group(0) @binding(3)
-var<storage, read_write> stack_buf: array<Node>;
-
 const NODE_MIN_SIZE = 8.0;
 
 fn read_svo_byte(offset: u32) -> u32 {
@@ -166,16 +163,6 @@ fn svo_read(offset: u32) -> bool {
 const ROOT_NODE_SIZE: u32 = 512u;
 const ROOT_NODE_DEPTH: u32 = 6u;
 
-fn get_stack(index: i32, global_invocation_id: vec3<u32>) -> Node {
-    let id = (global_invocation_id.y * uniforms.screen_size.x + global_invocation_id.x) * 7;
-    return stack_buf[id + u32(index)];
-}
-
-fn set_stack(index: i32, node: Node, global_invocation_id: vec3<u32>) {
-    let id = (global_invocation_id.y * uniforms.screen_size.x + global_invocation_id.x) * 7;
-    stack_buf[id + u32(index)] = node;
-}
-
 /// The entry point for the voxel compute shader.
 ///
 /// # Arguments
@@ -185,7 +172,7 @@ fn set_stack(index: i32, node: Node, global_invocation_id: vec3<u32>) {
 fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocation_id) thread_id: vec3<u32>) {
     // The actual ray.
     let ray = ray_new(
-        vec3<f32>(-380.0, 100.0, -800.0),
+        vec3<f32>(-2080.0, 100.0, -800.0),
         ray_direction(vec2<f32>(uniforms.screen_size), vec2<f32>(screen.xy)),
     );
 
@@ -193,24 +180,19 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var color = vec3<f32>(0.0);
 
     // The stack contains all previous nodes.
-    // var stack: array<Node, (ROOT_NODE_DEPTH + 1u)>;
+    var stack: array<Node, (ROOT_NODE_DEPTH + 1u)>;
     var stack_len = 0;
 
     var offset = 0u;
     var offsets: array<u32, ROOT_NODE_DEPTH>;
     var offsets_len = 0;
 
-    var caches: array<u32, 725>;
-    var caches_len = 0;
-
-    // stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
-    let root_node = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
-    set_stack(0, root_node, screen);
+    stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
     stack_len ++;
 
-    // var dist = calculate_time(ray, stack[0].center, stack[0].size);
+    var dist = calculate_time(ray, stack[0].center, stack[0].size);
 
-    var dist = calculate_time(ray, root_node.center, root_node.size);
+    // var dist = calculate_time(ray, root_node.center, root_node.size);
     let root_dist = dist;
     var depth = 0u;
 
@@ -221,7 +203,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     }
 
     loop {
-        let cur_node = get_stack(stack_len - 1, screen);
+        let cur_node = stack[stack_len - 1];
         // The position of the point at where the ray hit the current voxel.
         let p_in = ray.origin + ray.direction * (dist.x + BIAS);
         // The direction of the next voxel (child) calculated from the current voxel (parent).
@@ -239,21 +221,13 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         // The offset of the next voxel (child) in the SVO.
         let new_offset = offset + local_offset * idx;
 
-        var exist_in_caches = false;
-
-        for (var j = 0; j < caches_len; j++) {
-            if (offset == caches[j]) {
-                exist_in_caches = true;
-            }
-        }
-
         // This operation is the PUSH operation. It consist of just set the
         // next voxel (child) as the current voxel (parent) for the next
         // iteration loop. A PUSH operation can be executed if the distance
         // at where the ray exit the current voxel (parent) is not equal to the
         // maximum distance (t_max) and the offset of the next voxel (child)
         // in the SVO was set to 0x1.
-        if (dist.x < t_max && svo_read(new_offset) && !exist_in_caches) {
+        if (dist.x < t_max && svo_read(new_offset)) {
 
             let child_node =  Node(p_center, cur_node.size * 0.5);
             let is_transparent = true;
@@ -261,22 +235,13 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
             if (child_node.size == 8.0) {
                 if (is_transparent) {
                     color = (cur_node.center + 255.5 - 8.0) * 0.001953125;
-
-                    // dist.x = t_max;
-                    // stack_len --;
-
-                    caches[caches_len] = new_offset;
-                    caches_len ++;
-
-                    // continue;
                 } else {
                     // 1 / 512 = 0.001953125
                     color = (cur_node.center + 255.5 - 8.0) * 0.001953125;
                     break;
                 }
-
             } else {
-                set_stack(stack_len, child_node, screen);
+                stack[stack_len] =  child_node;
                 dist.y = calculate_time(ray, p_center, cur_node.size * 0.5).y;
                 stack_len ++;
 
@@ -291,7 +256,6 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
             }
         }
 
-        // This is the ADVANCE part. It just set the
         dist.x = t_max;
 
         if (dist.x + BIAS >= root_dist.y) {

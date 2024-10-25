@@ -15,7 +15,6 @@ pub struct Renderer<'window> {
     device: Device,
     queue: Queue,
 
-    stack_buf: wgpu::Buffer,
     uniform_buf: wgpu::Buffer,
 
     instant: Instant,
@@ -46,11 +45,18 @@ impl<'window> Renderer<'window> {
         }))
         .unwrap();
 
+        let limit = wgpu::Limits {
+            max_buffer_size: 512 * 1024 * 1024,
+            max_storage_buffer_binding_size: 512 * 1024 * 1024,
+            ..Default::default()
+        };
+        // limit.max_buffer_size = 512 * 1024 * 1024;
+
         let (device, queue) = block_on(adapter.request_device(
             &DeviceDescriptor {
                 label: None,
                 required_features: Features::default() | Features::TIMESTAMP_QUERY,
-                required_limits: Limits::default(),
+                required_limits: limit,
                 memory_hints: MemoryHints::Performance,
             },
             None,
@@ -96,24 +102,6 @@ impl<'window> Renderer<'window> {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
-        let stack_buf_size = std::mem::size_of::<f32>()
-            * 5
-            * 7
-            * (surface_size.width * surface_size.height) as usize;
-
-        let stack_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Stack Buffer"),
-            size: stack_buf_size as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        println!(
-            "The size of the stack buffer: {}ko ({}mo)",
-            stack_buf_size / 1024,
-            stack_buf_size / 1024 / 1024
-        );
-
         // The maximum size of the stack array (in byte)
         let s = 512;
         let mut svo = svo::Svo::new(svo::Vec3 { x: 0, y: 0, z: 0 }, s, 6);
@@ -143,7 +131,6 @@ impl<'window> Renderer<'window> {
             &device,
             &uniform_buf,
             &svo_buf,
-            &stack_buf,
             &voxel_output_texture.create_view(&Default::default()),
         );
 
@@ -180,7 +167,6 @@ impl<'window> Renderer<'window> {
             queue,
 
             uniform_buf,
-            stack_buf,
 
             instant: Instant::now(),
             fps: 0,
