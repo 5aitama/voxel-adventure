@@ -20,8 +20,8 @@ pub struct App<'window> {
 
 impl<'window> ApplicationHandler for App<'window> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let attribute = winit::window::Window::default_attributes()
-            .with_inner_size(PhysicalSize::new(1600, 1200));
+        let attribute =
+            winit::window::Window::default_attributes().with_inner_size(LogicalSize::new(800, 600));
 
         match event_loop.create_window(attribute) {
             Ok(window) => {
@@ -45,7 +45,7 @@ impl<'window> ApplicationHandler for App<'window> {
         match event {
             WindowEvent::Resized(new_size) => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    // renderer.resize(new_size);
+                    renderer.resize(new_size);
                 }
             }
 

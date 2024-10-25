@@ -172,7 +172,7 @@ const ROOT_NODE_DEPTH: u32 = 6u;
 fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocation_id) thread_id: vec3<u32>) {
     // The actual ray.
     let ray = ray_new(
-        vec3<f32>(-2080.0, 100.0, -800.0),
+        vec3<f32>(-380.0, 100.0, -800.0),
         ray_direction(vec2<f32>(uniforms.screen_size), vec2<f32>(screen.xy)),
     );
 

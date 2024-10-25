@@ -1,4 +1,7 @@
-use super::passes::{vox_compute_pass::VoxelComputePass, vox_rendering_pass::VoxelRenderPass};
+use super::{
+    passes::{vox_compute_pass::VoxelComputePass, vox_rendering_pass::VoxelRenderPass},
+    uniform::Uniforms,
+};
 use pollster::block_on;
 use std::{sync::Arc, time::Instant};
 use wgpu::{
@@ -11,11 +14,14 @@ use winit::dpi::PhysicalSize;
 
 pub struct Renderer<'window> {
     surface: Surface<'window>,
+    surface_config: SurfaceConfiguration,
     surface_size: PhysicalSize<u32>,
     device: Device,
     queue: Queue,
 
+    uniforms: Uniforms,
     uniform_buf: wgpu::Buffer,
+    svo_buf: wgpu::Buffer,
 
     instant: Instant,
     fps: u64,
@@ -46,11 +52,8 @@ impl<'window> Renderer<'window> {
         .unwrap();
 
         let limit = wgpu::Limits {
-            max_buffer_size: 512 * 1024 * 1024,
-            max_storage_buffer_binding_size: 512 * 1024 * 1024,
             ..Default::default()
         };
-        // limit.max_buffer_size = 512 * 1024 * 1024;
 
         let (device, queue) = block_on(adapter.request_device(
             &DeviceDescriptor {
@@ -69,7 +72,7 @@ impl<'window> Renderer<'window> {
             width: surface_size.width,
             height: surface_size.height,
             present_mode: PresentMode::AutoVsync,
-            desired_maximum_frame_latency: 3,
+            desired_maximum_frame_latency: 2,
             alpha_mode: CompositeAlphaMode::Auto,
             view_formats: vec![],
         };
@@ -91,16 +94,12 @@ impl<'window> Renderer<'window> {
             view_formats: &[],
         });
 
-        let uniforms = super::uniform::Uniforms {
+        let uniforms = Uniforms {
             texture_width: surface_size.width,
             texture_height: surface_size.height,
         };
 
-        let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let uniform_buf = uniforms.new_buf(&device);
 
         // The maximum size of the stack array (in byte)
         let s = 512;
@@ -162,11 +161,15 @@ impl<'window> Renderer<'window> {
 
         Self {
             surface,
+            surface_config,
             surface_size,
             device,
             queue,
 
+            uniforms,
             uniform_buf,
+
+            svo_buf,
 
             instant: Instant::now(),
             fps: 0,
@@ -180,6 +183,53 @@ impl<'window> Renderer<'window> {
             voxel_compute_pass,
             voxel_render_pass,
         }
+    }
+
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        if self.surface_size == new_size {
+            return;
+        }
+
+        // Reconfigure the surface to match with the new size.
+        self.surface_size = new_size;
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
+        self.surface.configure(&self.device, &self.surface_config);
+
+        // Recreate the voxel output texture with the new size.
+        self.voxel_output_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Voxel Render Texture"),
+            size: wgpu::Extent3d {
+                width: self.surface_size.width,
+                height: self.surface_size.height,
+                ..Default::default()
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        // Update the voxel renderer uniform
+        self.uniforms.texture_width = new_size.width;
+        self.uniforms.texture_height = new_size.height;
+        self.uniforms.update_buf(&self.queue, &self.uniform_buf);
+
+        // Recreate the pipelines
+        self.voxel_compute_pass = VoxelComputePass::new(
+            &self.device,
+            &self.uniform_buf,
+            &self.svo_buf,
+            &self.voxel_output_texture.create_view(&Default::default()),
+        );
+
+        self.voxel_render_pass = VoxelRenderPass::new(
+            &self.device,
+            &self.voxel_output_texture.create_view(&Default::default()),
+            self.surface_config.format,
+        );
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
