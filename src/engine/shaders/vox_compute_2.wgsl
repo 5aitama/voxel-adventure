@@ -237,38 +237,40 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         // in the SVO was set to 0x1.
         if (dist.x < t_max && svo_read(new_offset) && !exist_in_caches) {
 
-            stack[stack_len] = Node(p_center, stack[stack_len - 1].size * 0.5);
-            dist.y = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
-            stack_len ++;
-
+            let child_node =  Node(p_center, stack[stack_len - 1].size * 0.5);
             let is_transparent = true;
 
-            if (stack[stack_len - 1].size == 8.0) {
+            if (child_node.size == 8.0) {
                 if (is_transparent) {
                     color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
 
-                    dist.x = t_max;
-                    stack_len --;
+                    // dist.x = t_max;
+                    // stack_len --;
 
                     caches[caches_len] = new_offset;
                     caches_len ++;
 
-                    continue;
+                    // continue;
+                } else {
+                    // 1 / 512 = 0.001953125
+                    color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
+                    break;
                 }
 
-                // 1 / 512 = 0.001953125
-                color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
-                break;
+            } else {
+                stack[stack_len] = child_node;
+                dist.y = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
+                stack_len ++;
+
+                depth ++;
+
+                offset = new_offset;
+                offsets[offsets_len] = new_offset - local_offset * idx;
+                offsets_len ++;
+                offset ++;
+
+                continue;
             }
-
-            depth ++;
-
-            offset = new_offset;
-            offsets[offsets_len] = new_offset - local_offset * idx;
-            offsets_len ++;
-            offset ++;
-
-            continue;
         }
 
         // This is the ADVANCE part. It just set the
