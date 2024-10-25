@@ -10,5 +10,4 @@ pollster = "0.3.0"
 rand = "0.8.5"
 wgpu = { version = "22.0.0", features = ["vulkan-portability"] }
 winit = "0.30.4"
-svq-rs = { path = "../psvo-rs" }
 svo = { path = "../svo" }

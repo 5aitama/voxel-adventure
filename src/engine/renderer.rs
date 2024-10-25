@@ -97,8 +97,8 @@ impl<'window> Renderer<'window> {
         });
 
         // The maximum size of the stack array (in byte)
-        let s = 256;
-        let mut svo = svo::Svo::new(svo::Vec3 { x: 0, y: 0, z: 0 }, s, 5);
+        let s = 512;
+        let mut svo = svo::Svo::new(svo::Vec3 { x: 0, y: 0, z: 0 }, s, 6);
         for i in 0..(s / 8) {
             for j in 0..(s / 8) {
                 for k in 0..(s / 8) {

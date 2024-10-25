@@ -26,7 +26,7 @@ struct Ray {
     inverse_direction: vec3<f32>,
 }
 
-const BIAS: f32 = 0.0001;
+const BIAS: f32 = 0.001;
 
 /// Create a new [`Ray`].
 ///
@@ -42,7 +42,7 @@ fn ray_new(origin: vec3<f32>, direction: vec3<f32>) -> Ray {
         f32(direction.z >= 0.0),
     ) * 2.0 - 1.0;
 
-    let dir: vec3<f32> = max(abs(direction), vec3<f32>(0.0001)) * ndir;
+    let dir: vec3<f32> = max(abs(direction), vec3<f32>(0.001)) * ndir;
     return Ray(origin, dir, 1.0 / dir);
 }
 
@@ -160,8 +160,8 @@ fn svo_read(offset: u32) -> bool {
     return ((value >> shift) & 0x1u) == 0x1u;
 }
 
-const ROOT_NODE_SIZE: u32 = 256u;
-const ROOT_NODE_DEPTH: u32 = 5u;
+const ROOT_NODE_SIZE: u32 = 512u;
+const ROOT_NODE_DEPTH: u32 = 6u;
 
 /// The entry point for the voxel compute shader.
 ///
@@ -187,7 +187,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var offsets: array<u32, ROOT_NODE_DEPTH>;
     var offsets_len = 0;
 
-    stack[0] = Node(vec3f(0.0, 0.0, 0.0), f32(ROOT_NODE_SIZE));
+    stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
     stack_len ++;
 
     var dist = calculate_time(ray, stack[0].center, stack[0].size);
@@ -200,18 +200,32 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         return;
     }
 
-    for (var i = 0; i < 1000000; i++) {
+    loop {
+        // The position of the point at where the ray hit the current voxel.
         let p_in = ray.origin + ray.direction * (dist.x + BIAS);
+        // The direction of the next voxel (child) calculated from the current voxel (parent).
         let p_dir = vec3f(p_in >= stack[stack_len - 1].center) * 2.0 - 1.0;
+        // The center position of the next voxel (child).
         let p_center = stack[stack_len - 1].center + p_dir * stack[stack_len - 1].size * 0.25;
-
+        // The distance at where the ray exit the next voxel (child).
         let t_max = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
+
+        // The index of the next voxel (child) calculated from the current voxel (parent).
         let idx = direction_to_index(p_dir);
 
+        // Calculate the offset of the next voxel (child) in the SVO.
         let local_offset = (1u << (3u * (ROOT_NODE_DEPTH - depth)) - 1u) / 7u;
+        // The offset of the next voxel (child) in the SVO.
         let new_offset = offset + local_offset * idx;
 
+        // This operation is the PUSH operation. It consist of just set the
+        // next voxel (child) as the current voxel (parent) for the next
+        // iteration loop. A PUSH operation can be executed if the distance
+        // at where the ray exit the current voxel (parent) is not equal to the
+        // maximum distance (t_max) and the offset of the next voxel (child)
+        // in the SVO was set to 0x1.
         if (dist.x < t_max && svo_read(new_offset)) {
+
             stack[stack_len] = Node(p_center, stack[stack_len - 1].size * 0.5);
             dist.y = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
             stack_len ++;
@@ -220,10 +234,8 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
 
             if (stack[stack_len - 1].size == 8.0) {
                 if (is_transparent) {
-                    color = (stack[stack_len - 1].center + 127.5 - 8.0) * 0.0078125;
-                    if (stack_len == 7) {
-                        return;
-                    }
+                    color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
+
                     dist.x = t_max;
                     stack_len --;
 
@@ -231,8 +243,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
                 }
 
                 // 1 / 512 = 0.001953125
-                color = (stack[stack_len - 1].center + 127.5 - 8.0) * 0.0078125;
-
+                color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
                 break;
             }
 
@@ -246,6 +257,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
             continue;
         }
 
+        // This is the ADVANCE part. It just set the
         dist.x = t_max;
 
         if (dist.x + BIAS >= root_dist.y) {

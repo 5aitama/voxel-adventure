@@ -1484,10 +1484,6 @@ name = "svo"
 version = "0.1.0"
 
 [[package]]
-name = "svq-rs"
-version = "0.1.0"
-
-[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1641,7 +1637,6 @@ dependencies = [
  "pollster",
  "rand",
  "svo",
- "svq-rs",
  "wgpu",
  "winit",
 ]
