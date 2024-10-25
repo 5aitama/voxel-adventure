@@ -140,6 +140,9 @@ var out_tex: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2)
 var<storage> sparse_voxel_octree_data: array<u32>;
 
+@group(0) @binding(3)
+var<storage, read_write> stack_buf: array<Node>;
+
 const NODE_MIN_SIZE = 8.0;
 
 fn read_svo_byte(offset: u32) -> u32 {
@@ -163,6 +166,16 @@ fn svo_read(offset: u32) -> bool {
 const ROOT_NODE_SIZE: u32 = 512u;
 const ROOT_NODE_DEPTH: u32 = 6u;
 
+fn get_stack(index: i32, global_invocation_id: vec3<u32>) -> Node {
+    let id = (global_invocation_id.y * uniforms.screen_size.x + global_invocation_id.x) * 7;
+    return stack_buf[id + u32(index)];
+}
+
+fn set_stack(index: i32, node: Node, global_invocation_id: vec3<u32>) {
+    let id = (global_invocation_id.y * uniforms.screen_size.x + global_invocation_id.x) * 7;
+    stack_buf[id + u32(index)] = node;
+}
+
 /// The entry point for the voxel compute shader.
 ///
 /// # Arguments
@@ -180,7 +193,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var color = vec3<f32>(0.0);
 
     // The stack contains all previous nodes.
-    var stack: array<Node, (ROOT_NODE_DEPTH + 1u)>;
+    // var stack: array<Node, (ROOT_NODE_DEPTH + 1u)>;
     var stack_len = 0;
 
     var offset = 0u;
@@ -190,10 +203,14 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var caches: array<u32, 725>;
     var caches_len = 0;
 
-    stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
+    // stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
+    let root_node = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
+    set_stack(0, root_node, screen);
     stack_len ++;
 
-    var dist = calculate_time(ray, stack[0].center, stack[0].size);
+    // var dist = calculate_time(ray, stack[0].center, stack[0].size);
+
+    var dist = calculate_time(ray, root_node.center, root_node.size);
     let root_dist = dist;
     var depth = 0u;
 
@@ -204,14 +221,15 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     }
 
     loop {
+        let cur_node = get_stack(stack_len - 1, screen);
         // The position of the point at where the ray hit the current voxel.
         let p_in = ray.origin + ray.direction * (dist.x + BIAS);
         // The direction of the next voxel (child) calculated from the current voxel (parent).
-        let p_dir = vec3f(p_in >= stack[stack_len - 1].center) * 2.0 - 1.0;
+        let p_dir = vec3f(p_in >= cur_node.center) * 2.0 - 1.0;
         // The center position of the next voxel (child).
-        let p_center = stack[stack_len - 1].center + p_dir * stack[stack_len - 1].size * 0.25;
+        let p_center = cur_node.center + p_dir * cur_node.size * 0.25;
         // The distance at where the ray exit the next voxel (child).
-        let t_max = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
+        let t_max = calculate_time(ray, p_center, cur_node.size * 0.5).y;
 
         // The index of the next voxel (child) calculated from the current voxel (parent).
         let idx = direction_to_index(p_dir);
@@ -237,12 +255,12 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         // in the SVO was set to 0x1.
         if (dist.x < t_max && svo_read(new_offset) && !exist_in_caches) {
 
-            let child_node =  Node(p_center, stack[stack_len - 1].size * 0.5);
+            let child_node =  Node(p_center, cur_node.size * 0.5);
             let is_transparent = true;
 
             if (child_node.size == 8.0) {
                 if (is_transparent) {
-                    color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
+                    color = (cur_node.center + 255.5 - 8.0) * 0.001953125;
 
                     // dist.x = t_max;
                     // stack_len --;
@@ -253,13 +271,13 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
                     // continue;
                 } else {
                     // 1 / 512 = 0.001953125
-                    color = (stack[stack_len - 1].center + 255.5 - 8.0) * 0.001953125;
+                    color = (cur_node.center + 255.5 - 8.0) * 0.001953125;
                     break;
                 }
 
             } else {
-                stack[stack_len] = child_node;
-                dist.y = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
+                set_stack(stack_len, child_node, screen);
+                dist.y = calculate_time(ray, p_center, cur_node.size * 0.5).y;
                 stack_len ++;
 
                 depth ++;

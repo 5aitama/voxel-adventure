@@ -96,6 +96,24 @@ impl<'window> Renderer<'window> {
             usage: wgpu::BufferUsages::UNIFORM,
         });
 
+        let stack_buf_size = std::mem::size_of::<f32>()
+            * 5
+            * 7
+            * (surface_size.width * surface_size.height) as usize;
+
+        let stack_buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Stack Buffer"),
+            size: stack_buf_size as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
+        println!(
+            "The size of the stack buffer: {}ko ({}mo)",
+            stack_buf_size / 1024,
+            stack_buf_size / 1024 / 1024
+        );
+
         // The maximum size of the stack array (in byte)
         let s = 512;
         let mut svo = svo::Svo::new(svo::Vec3 { x: 0, y: 0, z: 0 }, s, 6);
@@ -115,7 +133,7 @@ impl<'window> Renderer<'window> {
             }
         }
 
-        let stack_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let svo_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Stack Buffer"),
             contents: svo.buf(),
             usage: wgpu::BufferUsages::STORAGE,
@@ -124,6 +142,7 @@ impl<'window> Renderer<'window> {
         let voxel_compute_pass = VoxelComputePass::new(
             &device,
             &uniform_buf,
+            &svo_buf,
             &stack_buf,
             &voxel_output_texture.create_view(&Default::default()),
         );
