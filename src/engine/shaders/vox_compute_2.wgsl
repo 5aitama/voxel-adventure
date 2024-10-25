@@ -187,6 +187,9 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var offsets: array<u32, ROOT_NODE_DEPTH>;
     var offsets_len = 0;
 
+    var caches: array<u32, 725>;
+    var caches_len = 0;
+
     stack[0] = Node(vec3f(0.01, 0.01, 0.01), f32(ROOT_NODE_SIZE));
     stack_len ++;
 
@@ -218,13 +221,21 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         // The offset of the next voxel (child) in the SVO.
         let new_offset = offset + local_offset * idx;
 
+        var exist_in_caches = false;
+
+        for (var j = 0; j < caches_len; j++) {
+            if (offset == caches[j]) {
+                exist_in_caches = true;
+            }
+        }
+
         // This operation is the PUSH operation. It consist of just set the
         // next voxel (child) as the current voxel (parent) for the next
         // iteration loop. A PUSH operation can be executed if the distance
         // at where the ray exit the current voxel (parent) is not equal to the
         // maximum distance (t_max) and the offset of the next voxel (child)
         // in the SVO was set to 0x1.
-        if (dist.x < t_max && svo_read(new_offset)) {
+        if (dist.x < t_max && svo_read(new_offset) && !exist_in_caches) {
 
             stack[stack_len] = Node(p_center, stack[stack_len - 1].size * 0.5);
             dist.y = calculate_time(ray, p_center, stack[stack_len - 1].size * 0.5).y;
@@ -238,6 +249,9 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
 
                     dist.x = t_max;
                     stack_len --;
+
+                    caches[caches_len] = new_offset;
+                    caches_len ++;
 
                     continue;
                 }
