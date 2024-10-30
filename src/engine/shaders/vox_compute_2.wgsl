@@ -172,7 +172,7 @@ const ROOT_NODE_DEPTH: u32 = 6u;
 fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocation_id) thread_id: vec3<u32>) {
     // The actual ray.
     let ray = ray_new(
-        vec3<f32>(-380.0, 100.0, -800.0),
+        vec3<f32>(-300.0, 357.0, -556.0),
         ray_direction(vec2<f32>(uniforms.screen_size), vec2<f32>(screen.xy)),
     );
 
@@ -197,7 +197,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
     var depth = 0u;
 
     // Mean that the ray don't hit the root node.
-    if (dist.x + BIAS >= dist.y) {
+    if (dist.x + BIAS >= dist.y || dist.x < 0.0) {
         textureStore(out_tex, screen.xy, vec4f(vec3f(0.0), 1.0));
         return;
     }
@@ -230,7 +230,7 @@ fn main(@builtin(global_invocation_id) screen: vec3<u32>, @builtin(local_invocat
         if (dist.x < t_max && svo_read(new_offset)) {
 
             let child_node =  Node(p_center, cur_node.size * 0.5);
-            let is_transparent = true;
+            let is_transparent = false;
 
             if (child_node.size == 8.0) {
                 if (is_transparent) {
