@@ -93,18 +93,40 @@ fn i_min(v: vec3<f32>) -> f32 {
 ///
 fn calculate_time(ray: Ray, center: vec3<f32>, size: f32) -> vec2f {
     let s = size * 0.5;
-    let ray_dir_sign = i_sign(ray.direction);
+    // let ray_dir_sign = i_sign(ray.direction);
 
-    let v_min = -s * ray_dir_sign + center;
-    let v_max =  s * ray_dir_sign + center;
+    // let v_min = -s * ray_dir_sign + center;
+    // let v_max =  s * ray_dir_sign + center;
 
-    let c_min = (v_min - ray.origin) * ray.inverse_direction;
-    let c_max = (v_max - ray.origin) * ray.inverse_direction;
+    // let c_min = (v_min - ray.origin) * ray.inverse_direction;
+    // let c_max = (v_max - ray.origin) * ray.inverse_direction;
 
-    let t_min = min(i_max(c_min), i_max(c_max));
-    let t_max = max(i_min(c_min), i_min(c_max));
+    // let t_min = min(i_max(c_min), i_max(c_max));
+    // let t_max = max(i_min(c_min), i_min(c_max));
 
-    return vec2f(t_min, t_max);
+
+    var tmin = ray.inverse_direction * (center - s) + (-ray.origin * ray.inverse_direction);
+    var tmax = ray.inverse_direction * (center + s) + (-ray.origin * ray.inverse_direction);
+
+    if (ray.direction.x < 0.0) {
+        let tmin_x = tmin.x;
+        tmin.x = tmax.x;
+        tmax.x = tmin_x;
+    }
+
+    if (ray.direction.y < 0.0) {
+        let tmin_y = tmin.y;
+        tmin.y = tmax.y;
+        tmax.y = tmin_y;
+    }
+
+    if (ray.direction.z < 0.0) {
+        let tmin_z = tmin.z;
+        tmin.z = tmax.z;
+        tmax.z = tmin_z;
+    }
+
+    return vec2f(max(max(tmin.x, tmin.y), tmin.z), min(min(tmax.x, tmax.y), tmax.z));
 }
 
 const FOV = 120.0;
